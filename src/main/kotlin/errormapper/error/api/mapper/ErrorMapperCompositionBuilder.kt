@@ -1,8 +1,7 @@
-package errormapper.error.api.dsl
+package errormapper.error.api.mapper
 
 import errormapper.error.api.exception.DomainException
 import errormapper.error.api.internal.Mapper
-import errormapper.error.api.mapper.ErrorMapperComposition
 
 fun ErrorMapperComposition(
     baseComposition: ErrorMapperComposition = ErrorMapperComposition,

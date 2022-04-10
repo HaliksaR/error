@@ -1,12 +1,10 @@
 package errormapper
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import errormapper.error.api.ErrorMapper
-import errormapper.error.api.exception.*
 import errormapper.error.api.interceptor.ErrorInterceptor
 import errormapper.error.api.internal.ErrorModel
-import errormapper.error.api.mapper.CommonErrorMapper
-import errormapper.feature.data.loan.LoanErrorMapper
+import errormapper.feature.data.crossdomain.ProfileScenario
+import errormapper.feature.data.loan.*
 import errormapper.feature.data.transfer.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
@@ -19,82 +17,28 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Retrofit
 import retrofit2.create
-import retrofit2.http.GET
-import java.net.NoRouteToHostException
-
-@kotlinx.serialization.Serializable
-data class Answer(val value: Int)
-
-interface Api {
-
-    @GET("/answer400")
-    @ErrorMapper(LoanErrorMapper::class)
-    suspend fun get400(): Answer
-
-    @GET("/answerTransfer")
-    @ErrorMapper(TransferErrorMapper::class)
-    suspend fun getTransfer(): Answer
-
-    @GET("/answerTransferUnknown")
-    @ErrorMapper(TransferErrorMapper::class)
-    suspend fun getTransferUnknown(): Answer
-
-    @GET("/answerTransferNoRouteToHost")
-    @ErrorMapper(CommonErrorMapper::class)
-    suspend fun getTransferNoRouteToHost(): Answer
-
-    @GET("/answerCommon")
-    @ErrorMapper(CommonErrorMapper::class)
-    suspend fun getCommon(): Answer
-
-    @GET("/answer200")
-    @ErrorMapper(CommonErrorMapper::class)
-    suspend fun get200(): Answer
-
-    @GET("/answer503")
-    @ErrorMapper(CommonErrorMapper::class)
-    suspend fun get503(): Answer
-}
 
 private val mockRequests: (String) -> Pair<Int, String> = { encodedPath: String ->
-    when (encodedPath) {
-        "/answer400" -> 400 to jsonize(ErrorModel(code = 1, message = "answer400"))
-        "/answerTransfer" -> 400 to jsonize(ErrorModel(code = 6, message = "answerTransfer"))
-        "/answerTransferUnknown" -> 400 to jsonize(ErrorModel(code = 4345, message = "answerTransferUnknown"))
-        "/answerTransferNoRouteToHost" -> throw NoRouteToHostException("answerTransferNoRouteToHost")
-        "/answerCommon" -> 400 to jsonize(ErrorModel(code = 2, message = "answerCommon"))
-        "/answer200" -> 200 to jsonize(Answer(2))
-        "/answer503" -> 503 to jsonize(ErrorModel(code = 2, message = "answer503"))
+    when {
+        encodedPath.contains("/answer200") -> 200 to "{\"value\":1}"
+        encodedPath.contains("/answer400") -> 400 to jsonize(ErrorModel(code = 1, message = "answer400"))
+        encodedPath.contains("/answer503") -> 503 to jsonize(ErrorModel(code = 2, message = "answer503"))
         else -> 404 to "{}"
     }
 }
 
 fun main(): Unit = runBlocking {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val loanUseCase = LoanUseCase(loanApi)
+    val transferUseCase = TransferUseCase(transferApi)
     scope.launch(
-        body = { println("success : ${api.get200()}") },
-        error = { println("error : $it") }
-    )
-    scope.launch(
-        body = { println("success : ${api.get400()}") },
-        error = { println("error : $it") }
-    )
-    scope.launch(
-        body = { println("success : ${api.getCommon()}") },
-        error = { println("error : $it") }
-    )
-    scope.launch(
-        body = { println("success : ${api.getTransferNoRouteToHost()}") },
-        error = { println("error : $it") }
-    )
-    scope.launch(
-        body = { println("success : ${api.getTransfer()}") },
+        body = { println("success : ${loanUseCase.get400()}") },
         error = { exception ->
-            if (exception is TransferException) {
+            if (exception is LoanException) {
                 when (exception) {
-                    is TransferCountryException -> println("error : $exception")
-                    is TransferNotFoundException -> println("error : $exception")
-                    is TransferUnknownException -> println("error : $exception")
+                    is LoanCountryException,
+                    is LoanNotFoundException,
+                    is LoanUnknownException -> println("LoanException : $exception")
                 }
             } else {
                 println("Unknown error : $exception")
@@ -102,30 +46,29 @@ fun main(): Unit = runBlocking {
         }
     )
     scope.launch(
-        body = { println("success : ${api.getTransferUnknown()}") },
+        body = { println("success : ${transferUseCase.get400()}") },
         error = { exception ->
             if (exception is TransferException) {
                 when (exception) {
-                    is TransferCountryException -> println("error : $exception")
-                    is TransferNotFoundException -> println("error : $exception")
-                    is TransferUnknownException -> println("error : $exception")
+                    is TransferCountryException,
+                    is TransferNotFoundException,
+                    is TransferUnknownException -> println("TransferException : $exception")
                 }
             } else {
                 println("Unknown error : $exception")
             }
         }
     )
+
+    val profileScenario = ProfileScenario(loanUseCase, transferUseCase)
     scope.launch(
-        body = { println("success : ${api.get503()}") },
+        body = { println("success : ${profileScenario.get400()}") },
         error = { exception ->
-            if (exception is TransferException) {
-                when (exception) {
-                    is TransferCountryException -> println("error : $exception")
-                    is TransferNotFoundException -> println("error : $exception")
-                    is TransferUnknownException -> println("error : $exception")
-                }
-            } else {
-                println("Unknown error : $exception")
+            // благодаря аннотациям над сценарием, понятно ошибки какого домена могут прилететь.
+            when (exception) {
+                is TransferException -> println("TransferException : $exception")
+                is LoanException -> println("TransferException : $exception")
+                else -> println("Unknown error : $exception")
             }
         }
     )
@@ -159,7 +102,14 @@ private val client: OkHttpClient =
         .addInterceptor(mockInterceptor())
         .build()
 
-private val api: Api =
+private val loanApi: errormapper.feature.data.loan.Api =
+    Retrofit.Builder().baseUrl("https://test")
+        .addConverterFactory(Json.asConverterFactory(MEDIA_TYPE_JSON.toMediaType()))
+        .client(client)
+        .build()
+        .create()
+
+private val transferApi: errormapper.feature.data.transfer.Api =
     Retrofit.Builder().baseUrl("https://test")
         .addConverterFactory(Json.asConverterFactory(MEDIA_TYPE_JSON.toMediaType()))
         .client(client)

@@ -1,6 +1,5 @@
 package errormapper.error.api.mapper
 
-import errormapper.error.api.dsl.ErrorMapperComposition
 import errormapper.error.api.exception.*
 
 

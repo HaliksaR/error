@@ -1,6 +1,6 @@
 package errormapper.feature.data.transfer
 
-import errormapper.error.api.dsl.ErrorMapperComposition
+import errormapper.error.api.mapper.ErrorMapperComposition
 import errormapper.error.api.mapper.ErrorMapper
 import errormapper.error.api.mapper.CommonErrorMapper
 import errormapper.error.api.exception.DomainException

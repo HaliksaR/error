@@ -1,5 +1,6 @@
 package errormapper
 
+import errormapper.error.api.deprecated.ErrorCode
 import errormapper.error.api.exception.*
 import java.io.IOException
 
@@ -46,10 +47,10 @@ private fun playGroundWhenCommon(exception: IOException) {
 sealed interface PlayGroundMarker
 sealed interface PlayGroundMarker2
 
-class PlayGroundDomainException0(override val message: String) : DomainException(message), PlayGroundMarker2
-class PlayGroundDomainException1(override val message: String) : DomainException(message), PlayGroundMarker
-class PlayGroundDomainException2(override val message: String) : DomainException(message), PlayGroundMarker2
-class PlayGroundDomainException3(override val message: String) : DomainException(message), PlayGroundMarker
+class PlayGroundDomainException0(override val message: String) : DomainException(message, ErrorCode.Unknown), PlayGroundMarker2
+class PlayGroundDomainException1(override val message: String) : DomainException(message, ErrorCode.Unknown), PlayGroundMarker
+class PlayGroundDomainException2(override val message: String) : DomainException(message, ErrorCode.Unknown), PlayGroundMarker2
+class PlayGroundDomainException3(override val message: String) : DomainException(message, ErrorCode.Unknown), PlayGroundMarker
 
 private fun playGroundWhenPlayGroundMarker(exception: IOException) {
     when (exception as PlayGroundMarker) {

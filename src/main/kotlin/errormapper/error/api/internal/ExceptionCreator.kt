@@ -19,7 +19,7 @@ private val DOCUMENTED_HTTP_CODES = setOf(
     HttpURLConnection.HTTP_UNAUTHORIZED
 )
 
-internal fun createDomainException(
+internal fun createDomainExceptionOrNull(
     request: Request,
     response: Response,
     serializer: Json,

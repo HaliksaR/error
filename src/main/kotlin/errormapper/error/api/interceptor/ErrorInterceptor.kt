@@ -1,6 +1,6 @@
 package errormapper.error.api.interceptor
 
-import errormapper.error.api.internal.createDomainException
+import errormapper.error.api.internal.createDomainExceptionOrNull
 import errormapper.error.api.internal.createLocalNetworkException
 import errormapper.error.api.internal.createServerException
 import kotlinx.serialization.json.Json
@@ -21,7 +21,7 @@ class ErrorInterceptor(private val serializer: Json, private val context: String
         return if (response.code == HTTP_OK) {
             response
         } else {
-            throw createDomainException(request, response, serializer, context)
+            throw createDomainExceptionOrNull(request, response, serializer, context)
                 ?: createServerException(response)
         }
     }
